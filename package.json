@@ -1,0 +1,21 @@
+{
+  "name": "finsta-post-bot",
+  "version": "1.0.0",
+  "description": "Bot that posts to my finsta automatically",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node --no-warnings --experimental-json-modules index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nasir",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "googleapis": "^67.1.1",
+    "googlephotos": "^0.3.4",
+    "instagram-private-api": "^1.43.4",
+    "node-persist": "^3.1.0",
+    "node-schedule": "^2.0.0"
+  }
+}
