@@ -4,6 +4,9 @@
   "description": "Bot that posts to my finsta automatically",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": "15.x"
+  },
   "scripts": {
     "start": "node --no-warnings --experimental-json-modules index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
