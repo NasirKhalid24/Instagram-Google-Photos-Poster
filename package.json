@@ -19,6 +19,6 @@
     "googlephotos": "^0.3.4",
     "instagram-private-api": "^1.43.4",
     "node-persist": "^3.1.0",
-    "node-schedule": "^2.0.0"
+    "toad-scheduler": "^1.0.2"
   }
 }

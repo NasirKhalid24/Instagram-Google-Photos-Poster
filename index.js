@@ -10,7 +10,7 @@ import { IgApiClient } from 'instagram-private-api';
 // Import misc node packages
 import dotenv from 'dotenv'
 import storage from 'node-persist'
-import schedule from 'node-schedule'
+import { ToadScheduler, SimpleIntervalJob, Task } from 'toad-scheduler'
 
 // Import helper functions
 import askQuestion from './helper/askQuestion.js'
@@ -27,8 +27,8 @@ const readFileAsync = promisify(readFile);
 const scopes = [Photos.Scopes.READ_AND_APPEND];
 
 // Scheduling requirements for posts
-const rule = new schedule.RecurrenceRule();
-rule.hour = 12;
+const scheduler = new ToadScheduler()
+
 
 // Instantiate Instagram API
 const ig = new IgApiClient();
@@ -67,72 +67,79 @@ const {tokens} = await oauth2Client.getToken(ans);
 oauth2Client.setCredentials(tokens);
 
 // Schedule job as per rules
-schedule.scheduleJob(rule, async () => {
-  
-  // Instantiate Google Photos client
-  const photos = new Photos(tokens.access_token);
+const task = new Task(
+  'Uploading Image',
 
-  // Fetch the images from the album
-  const response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+  async () => {
 
-  // Variable to keep track of if an image is posted on this loop
-  let uploaded = false;
-  console.log("-----\n")
+    // Instantiate Google Photos client
+    const photos = new Photos(tokens.access_token);
 
-  // Shuffle list of images so post is random
-  const images_ = shuffle(response.mediaItems)
+    // Fetch the images from the album
+    const response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
 
-  // Loop over images fetched
-  for (const image of images_) {
+    // Variable to keep track of if an image is posted on this loop
+    let uploaded = false;
+    console.log("-----\n")
 
-    // If image has been uploaded then break out of loop
-    if(uploaded) { break; }
+    // Shuffle list of images so post is random
+    const images_ = shuffle(response.mediaItems)
 
-    // Fetch image ID from data storage
-    let t = await storage.getItem(image.id);
+    // Loop over images fetched
+    for (const image of images_) {
 
-    // If image has not been uploaded proceed inside if statement
-    if(typeof t === "undefined"){
-      
-      // Get parameters for post
-      let url = image.baseUrl
-      let caption = image.description
+      // If image has been uploaded then break out of loop
+      if(uploaded) { break; }
 
-      // Get parameters for saving file
-      let extension = image.filename.split(".")[1]
-      let path  = './temp/file.' + extension
+      // Fetch image ID from data storage
+      let t = await storage.getItem(image.id);
 
-      // Download the image and save it in temp
-      await download(url, path, function(){
-        console.log('Downloaded Image - ', image.filename);
-      });
-
-      // Login to instagram account
-      await login();
-
-      // Upload the image with caption
-      const publishResult = await ig.publish.photo({
+      // If image has not been uploaded proceed inside if statement
+      if(typeof t === "undefined"){
         
-        file: await readFileAsync(path),
+        // Get parameters for post
+        let url = image.baseUrl
+        let caption = image.description
+
+        // Get parameters for saving file
+        let extension = image.filename.split(".")[1]
+        let path  = './temp/file.' + extension
+
+        // Download the image and save it in temp
+        await download(url, path, function(){
+          console.log('Downloaded Image - ', image.filename);
+        });
+
+        // Login to instagram account
+        await login();
+
+        // Upload the image with caption
+        const publishResult = await ig.publish.photo({
+          
+          file: await readFileAsync(path),
+          
+          caption: caption,
+        });
+
+        console.log("Attempted to post - ", image.filename, " | Status is ", publishResult.status);
+
+        // Delete the downloaded image
+        await unlinkSync(path, (err) => {
+            if(err) return console.log("Error when removing file = '", err);
+        })
         
-        caption: caption,
-      });
+        // Save a permanent file in data folder with image id to keept track that its been uploaded
+        await storage.setItem(image.id, true)
 
-      console.log("Attempted to post - ", image.filename, " | Status is ", publishResult.status);
+        // Set uploaded to true
+        uploaded = true;
+        console.log("-----\n")
+      }
 
-      // Delete the downloaded image
-      await unlinkSync(path, (err) => {
-          if(err) return console.log("Error when removing file = '", err);
-      })
-      
-      // Save a permanent file in data folder with image id to keept track that its been uploaded
-      await storage.setItem(image.id, true)
-
-      // Set uploaded to true
-      uploaded = true;
-      console.log("-----\n")
     }
-
   }
+)  
 
-});
+// Create and run job
+const job = new SimpleIntervalJob({ hours: 10, }, task)
+scheduler.addSimpleIntervalJob(job)
