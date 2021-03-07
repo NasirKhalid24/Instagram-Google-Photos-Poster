@@ -9,16 +9,16 @@
   },
   "scripts": {
     "start": "node --no-warnings --experimental-json-modules index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --no-warnings --experimental-json-modules test.js"
   },
   "author": "Nasir",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^8.2.0",
+    "google-refresh-token": "^0.5.3",
     "googleapis": "^67.1.1",
     "googlephotos": "^0.3.4",
     "instagram-private-api": "^1.43.4",
-    "node-persist": "^3.1.0",
-    "toad-scheduler": "^1.0.2"
+    "node-persist": "^3.1.0"
   }
 }

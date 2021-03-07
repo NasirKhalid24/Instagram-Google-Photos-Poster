@@ -10,7 +10,7 @@ import { IgApiClient } from 'instagram-private-api';
 // Import misc node packages
 import dotenv from 'dotenv'
 import storage from 'node-persist'
-import { ToadScheduler, SimpleIntervalJob, Task } from 'toad-scheduler'
+import refresh from 'google-refresh-token'
 
 // Import helper functions
 import askQuestion from './helper/askQuestion.js'
@@ -25,10 +25,6 @@ const readFileAsync = promisify(readFile);
 
 // Define scope of access for Google API
 const scopes = [Photos.Scopes.READ_AND_APPEND];
-
-// Scheduling requirements for posts
-const scheduler = new ToadScheduler()
-
 
 // Instantiate Instagram API
 const ig = new IgApiClient();
@@ -64,82 +60,114 @@ console.log("\n")
 
 // Get tokens and set credentials for oauth
 const {tokens} = await oauth2Client.getToken(ans); 
+let access_token_main = tokens.access_token;
+
 oauth2Client.setCredentials(tokens);
 
-// Schedule job as per rules
-const task = new Task(
-  'Uploading Image',
 
-  async () => {
+// Using setInterval to keep OAuth validated and post every 12 hours
+const ms_in_hour = 3600000
+const hour_interval = 12 * ms_in_hour
+const oauth_interval = 0.5 * ms_in_hour
+const post_now = hour_interval / oauth_interval
+let counter = 0
 
-    // Instantiate Google Photos client
-    const photos = new Photos(tokens.access_token);
+setInterval(async () => {
+  if(counter === post_now){
+      console.log("Posting Image...\n")
 
-    // Fetch the images from the album
-    const response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+      // Instantiate Google Photos client
+      let photos = new Photos(access_token_main);
 
-    // Variable to keep track of if an image is posted on this loop
-    let uploaded = false;
-    console.log("-----\n")
+      // Fetch the images from the album
+      let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
 
-    // Shuffle list of images so post is random
-    const images_ = shuffle(response.mediaItems)
+      // Variable to keep track of if an image is posted on this loop
+      let uploaded = false;
+      console.log("-----\n")
 
-    // Loop over images fetched
-    for (const image of images_) {
+      // Shuffle list of images so post is random
+      let images_ = shuffle(response.mediaItems)
 
-      // If image has been uploaded then break out of loop
-      if(uploaded) { break; }
+      // Loop over images fetched
+      for (let image of images_) {
 
-      // Fetch image ID from data storage
-      let t = await storage.getItem(image.id);
+        // If image has been uploaded then break out of loop
+        if(uploaded) { break; }
 
-      // If image has not been uploaded proceed inside if statement
-      if(typeof t === "undefined"){
-        
-        // Get parameters for post
-        let url = image.baseUrl
-        let caption = image.description
+        // Fetch image ID from data storage
+        let t = await storage.getItem(image.id);
 
-        // Get parameters for saving file
-        let extension = image.filename.split(".")[1]
-        let path  = './temp/file.' + extension
-
-        // Download the image and save it in temp
-        await download(url, path, function(){
-          console.log('Downloaded Image - ', image.filename);
-        });
-
-        // Login to instagram account
-        await login();
-
-        // Upload the image with caption
-        const publishResult = await ig.publish.photo({
+        // If image has not been uploaded proceed inside if statement
+        if(typeof t === "undefined"){
           
-          file: await readFileAsync(path),
+          // Get parameters for post
+          let url = image.baseUrl
+          let caption = image.description
+
+          // Get parameters for saving file
+          let extension = image.filename.split(".")[1]
+          let path  = './temp/file.' + extension
+
+          // Download the image and save it in temp
+          await download(url, path, function(){
+            console.log('Downloaded Image - ', image.filename);
+          });
+
+          // Login to instagram account
+          await login();
+
+          // Upload the image with caption
+          const publishResult = await ig.publish.photo({
+            
+            file: await readFileAsync(path),
+            
+            caption: caption,
+          });
+
+          console.log("Attempted to post - ", image.filename, " | Status is ", publishResult.status);
+
+          // Delete the downloaded image
+          await unlinkSync(path, (err) => {
+              if(err) return console.log("Error when removing file = '", err);
+          })
           
-          caption: caption,
-        });
+          // Save a permanent file in data folder with image id to keept track that its been uploaded
+          await storage.setItem(image.id, true)
 
-        console.log("Attempted to post - ", image.filename, " | Status is ", publishResult.status);
-
-        // Delete the downloaded image
-        await unlinkSync(path, (err) => {
-            if(err) return console.log("Error when removing file = '", err);
-        })
-        
-        // Save a permanent file in data folder with image id to keept track that its been uploaded
-        await storage.setItem(image.id, true)
-
-        // Set uploaded to true
-        uploaded = true;
-        console.log("-----\n")
+          // Set uploaded to true
+          uploaded = true;
+          console.log("-----\n")
+        }
       }
 
-    }
-  }
-)  
+      counter = 0
+  }else{
+      console.log("Validating credentials...\n")
 
-// Create and run job
-const job = new SimpleIntervalJob({ hours: 10, }, task)
-scheduler.addSimpleIntervalJob(job)
+      refresh(tokens.refresh_token, process.env.CLIENT_ID, process.env.CLIENT_SECRET, function (err, json, res) {
+        if (err) return handleError(err);
+        if (json.error) return handleError(new Error(res.statusCode + ': ' + json.error));
+       
+        access_token_main = json.accessToken;
+        if (! access_token_main) {
+          return handleError(new Error(res.statusCode + ': refreshToken error'));
+        }
+
+        console.log("Current Access Token = ", access_token_main);
+        oauth2Client.setCredentials(json);
+        
+      });
+
+      // Instantiate Google Photos client
+      let photos = new Photos(access_token_main);
+
+      // Fetch the images from the album
+      let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+
+      console.log("Image Array Length = ", response.mediaItems.length)
+
+      counter += 1;
+  }
+  
+}, oauth_interval)
