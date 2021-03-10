@@ -67,8 +67,10 @@ oauth2Client.setCredentials(tokens);
 
 // Using setInterval to keep OAuth validated and post every 12 hours
 const ms_in_hour = 3600000
-const hour_interval = 12 * ms_in_hour
-const oauth_interval = 0.5 * ms_in_hour
+const hours_ = 0
+const autht_ = 0.25
+const hour_interval = hours_ * ms_in_hour
+const oauth_interval = autht_ * ms_in_hour
 const post_now = hour_interval / oauth_interval
 let counter = 0
 
@@ -143,7 +145,7 @@ setInterval(async () => {
 
       counter = 0
   }else{
-      console.log("Validating credentials...\n")
+      console.log("\nValidating credentials...\n")
 
       refresh(tokens.refresh_token, process.env.CLIENT_ID, process.env.CLIENT_SECRET, function (err, json, res) {
         if (err) return handleError(err);
@@ -156,7 +158,8 @@ setInterval(async () => {
 
         console.log("Current Access Token = ", access_token_main);
         oauth2Client.setCredentials(json);
-        
+        console.log("\n")
+	console.log("Progress = ", counter+1, "/", post_now, " | ", (post_now-(counter+1))*autht_, " hours remaining...\n")
       });
 
       // Instantiate Google Photos client
