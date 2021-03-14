@@ -81,7 +81,19 @@ setInterval(async () => {
       let photos = new Photos(access_token_main);
 
       // Fetch the images from the album
-      let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+      let response = {}
+
+      // Fetch the images from the album
+      let length = 0
+
+      while(length == 0){
+        try {
+          response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+          length = response.mediaItems.length
+        } catch (error) {
+          console.log("Error in GooglePhotos API - retrying...")
+        }
+      }
 
       // Variable to keep track of if an image is posted on this loop
       let uploaded = false;
@@ -165,9 +177,18 @@ setInterval(async () => {
       let photos = new Photos(access_token_main);
 
       // Fetch the images from the album
-      let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+      let length = 0
 
-      console.log("Image Array Length = ", response.mediaItems.length)
+      while(length == 0){
+        try {
+          let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+          length = response.mediaItems.length
+        } catch (error) {
+          console.log("Error in GooglePhotos API - retrying...")
+        }
+      }
+      
+      console.log("Image Array Length = ", length)
 
       counter += 1;
   }
