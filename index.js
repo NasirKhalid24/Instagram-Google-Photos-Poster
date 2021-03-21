@@ -16,6 +16,7 @@ import refresh from 'google-refresh-token'
 import askQuestion from './helper/askQuestion.js'
 import download from './helper/download.js'
 import shuffle from './helper/shuffle.js'
+import albumLoader from "./helper/albumLoader.js";
 
 // Setup use of .env file
 dotenv.config();
@@ -77,9 +78,6 @@ setInterval(async () => {
   if(counter === post_now){
       console.log("Posting Image...\n")
 
-      // Instantiate Google Photos client
-      let photos = new Photos(access_token_main);
-
       // Fetch the images from the album
       let response = {}
 
@@ -88,7 +86,7 @@ setInterval(async () => {
 
       while(length == 0){
         try {
-          response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+          response = await albumLoader(access_token_main, process.env.FINSTA_ALBUM_ID);
           length = response.mediaItems.length
         } catch (error) {
           console.log("Error in GooglePhotos API - retrying...")
@@ -173,22 +171,22 @@ setInterval(async () => {
         console.log("Progress = ", counter+1, "/", post_now, " | ", (post_now-(counter+1))*autht_, " hours remaining...\n")
       });
 
-      // Instantiate Google Photos client
-      let photos = new Photos(access_token_main);
-
       // Fetch the images from the album
       let length = 0
 
       while(length == 0){
         try {
-          let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+          let response = await albumLoader(access_token_main, process.env.FINSTA_ALBUM_ID);
           length = response.mediaItems.length
+          if(length == 0){
+            console.log("Error in GooglePhotos API - retrying...")
+          }else{
+            console.log("Image Array Length = ", length)
+          }
         } catch (error) {
           console.log("Error in GooglePhotos API - retrying...")
         }
       }
-      
-      console.log("Image Array Length = ", length)
 
       counter += 1;
   }

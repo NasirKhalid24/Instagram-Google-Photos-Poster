@@ -16,6 +16,7 @@ import refresh from 'google-refresh-token'
 import askQuestion from './helper/askQuestion.js'
 import download from './helper/download.js'
 import shuffle from './helper/shuffle.js'
+import albumLoader from "./helper/albumLoader.js";
 
 // Setup use of .env file
 dotenv.config();
@@ -67,11 +68,10 @@ oauth2Client.setCredentials(tokens);
 
 console.log("Posting Image...\n")
 
-// Instantiate Google Photos client
-let photos = new Photos(access_token_main);
+// Fetch photos
+let response = await albumLoader(access_token_main, process.env.FINSTA_ALBUM_ID)
 
-// Fetch the images from the album
-let response = await photos.mediaItems.search(process.env.FINSTA_ALBUM_ID);
+console.log(response.mediaItems.length)
 
 console.log("-----\n")
 
